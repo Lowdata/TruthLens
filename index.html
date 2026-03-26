@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TruthLens | Media Authentication</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#151f32',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom animations for the analyzing state */
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .animate-scan {
+            animation: scanline 2s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i data-lucide="scan-eye" class="text-cyan-400 w-8 h-8"></i>
+                <span class="text-xl font-bold tracking-tight text-white">Truth<span class="text-cyan-400">Lens</span></span>
+            </div>
+            <div class="text-sm font-medium text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                MVP Demo Version
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full flex flex-col items-center">
+        
+        <!-- Hero Section -->
+        <div class="text-center max-w-2xl mb-12">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4">
+                Verify Reality in <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Seconds.</span>
+            </h1>
+            <p class="text-lg text-slate-400">
+                Upload a suspicious image to instantly detect deepfakes, expose AI generation, and trace the original source. Stop misinformation before it spreads.
+            </p>
+        </div>
+
+        <!-- App Interface Container -->
+        <div class="w-full max-w-3xl bg-slate-850 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
+            
+            <!-- Left Side: Upload Area -->
+            <div class="w-full md:w-1/2 p-8 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col">
+                <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="upload-cloud" class="w-5 h-5 text-cyan-400"></i> Upload Media
+                </h2>
+                
+                <div id="drop-zone" class="flex-grow border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center p-6 text-center hover:border-cyan-500 hover:bg-slate-800/50 transition-colors cursor-pointer group relative overflow-hidden">
+                    
+                    <input type="file" id="file-upload" class="hidden" accept="image/*" />
+                    
+                    <!-- Default Upload State -->
+                    <div id="upload-prompt" class="flex flex-col items-center">
+                        <i data-lucide="image-plus" class="w-12 h-12 text-slate-500 group-hover:text-cyan-400 transition-colors mb-3"></i>
+                        <p class="text-sm font-medium text-slate-300">Click or drag image to upload</p>
+                        <p class="text-xs text-slate-500 mt-1">Supports JPG, PNG (Max 5MB)</p>
+                    </div>
+
+                    <!-- Image Preview State (Hidden initially) -->
+                    <div id="image-preview-container" class="hidden absolute inset-0 w-full h-full bg-black">
+                        <img id="image-preview" src="" alt="Preview" class="w-full h-full object-contain opacity-70" />
+                        <!-- Scanning Line Animation -->
+                        <div id="scanning-line" class="hidden absolute top-0 left-0 w-full h-1 bg-cyan-400 shadow-[0_0_15px_#22d3ee] animate-scan z-10"></div>
+                    </div>
+                </div>
+
+                <button id="analyze-btn" class="mt-6 w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold rounded-lg shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" disabled>
+                    <i data-lucide="search" class="w-5 h-5"></i> Analyze Media
+                </button>
+            </div>
+
+            <!-- Right Side: Results Area -->
+            <div class="w-full md:w-1/2 bg-slate-900 p-8 flex flex-col justify-center relative">
+                
+                <!-- Placeholder State -->
+                <div id="results-placeholder" class="text-center">
+                    <i data-lucide="shield-alert" class="w-16 h-16 text-slate-700 mx-auto mb-4"></i>
+                    <p class="text-slate-400 text-sm">Upload an image to run the TruthLens authentication pipeline.</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading-state" class="hidden text-center">
+                    <i data-lucide="loader-2" class="w-12 h-12 text-cyan-400 mx-auto mb-4 animate-spin"></i>
+                    <p class="text-cyan-400 font-medium animate-pulse">Running AI Detection...</p>
+                    <p class="text-xs text-slate-500 mt-2 text-left bg-slate-800 p-3 rounded-md mt-4 font-mono">
+                        > Extracting EXIF data...<br>
+                        > Querying HuggingFace API...<br>
+                        > Calculating perceptual hash...
+                    </p>
+                </div>
+
+                <!-- Final Results State -->
+                <div id="final-results" class="hidden flex flex-col h-full">
+                    <div class="flex items-start justify-between mb-6">
+                        <div>
+                            <h3 class="text-2xl font-bold text-white mb-1">Analysis Complete</h3>
+                            <p class="text-sm text-slate-400">ID: TL-88492-BX</p>
+                        </div>
+                        <div id="status-icon" class="p-3 rounded-full bg-rose-500/20 text-rose-500">
+                            <i data-lucide="alert-triangle" class="w-8 h-8"></i>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 flex-grow">
+                        <!-- Score Card -->
+                        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm font-medium text-slate-300">Deepfake Probability</span>
+                                <span class="text-lg font-bold text-rose-400">92.4%</span>
+                            </div>
+                            <div class="w-full bg-slate-900 rounded-full h-2.5">
+                                <div class="bg-gradient-to-r from-amber-400 to-rose-500 h-2.5 rounded-full" style="width: 92.4%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Data Points -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                                <span class="block text-xs text-slate-500 mb-1">Metadata</span>
+                                <span class="text-sm font-semibold text-amber-400">Stripped/Missing</span>
+                            </div>
+                            <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                                <span class="block text-xs text-slate-500 mb-1">AI Artifacts</span>
+                                <span class="text-sm font-semibold text-rose-400">Detected (Face)</span>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700 mt-2">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Verdict Summary</h4>
+                            <p class="text-sm text-slate-300 leading-relaxed">
+                                High probability of AI manipulation. Facial textures exhibit GAN-style artifacts. No original camera metadata found. Proceed with caution.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <button onclick="resetApp()" class="mt-4 w-full py-2 text-sm text-slate-400 hover:text-white transition-colors">
+                        Scan another image
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Roadmap Section -->
+        <div class="w-full max-w-4xl mt-20">
+            <h2 class="text-2xl font-bold text-white mb-8 text-center border-b border-slate-800 pb-4">Product Roadmap</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Current -->
+                <div class="bg-slate-850 p-6 rounded-xl border border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.1)] relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-cyan-500 text-slate-900 text-xs font-bold px-3 py-1 rounded-bl-lg">Live MVP</div>
+                    <i data-lucide="globe" class="w-8 h-8 text-cyan-400 mb-4"></i>
+                    <h3 class="text-lg font-bold text-white mb-2">Web Application</h3>
+                    <p class="text-sm text-slate-400">Upload media manually to run against our deepfake detection and metadata extraction API pipeline.</p>
+                </div>
+
+                <!-- Next Phase -->
+                <div class="bg-slate-850 p-6 rounded-xl border border-slate-700 opacity-80">
+                    <div class="absolute top-0 right-0 bg-slate-700 text-slate-300 text-xs font-bold px-3 py-1 rounded-bl-lg">Phase 2</div>
+                    <i data-lucide="message-square" class="w-8 h-8 text-emerald-400 mb-4"></i>
+                    <h3 class="text-lg font-bold text-white mb-2">Social Bots</h3>
+                    <p class="text-sm text-slate-400">Integrations for Telegram and WhatsApp. Forward suspicious posts directly to the bot for instant, on-the-go verification.</p>
+                </div>
+
+                <!-- Future -->
+                <div class="bg-slate-850 p-6 rounded-xl border border-slate-700 opacity-60">
+                    <div class="absolute top-0 right-0 bg-slate-700 text-slate-300 text-xs font-bold px-3 py-1 rounded-bl-lg">Phase 3</div>
+                    <i data-lucide="smartphone" class="w-8 h-8 text-purple-400 mb-4"></i>
+                    <h3 class="text-lg font-bold text-white mb-2">Active Screen Overlay</h3>
+                    <p class="text-sm text-slate-400">A mobile OS-level overlay. Detects media currently playing on your screen and verifies its authenticity in real-time.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="border-t border-slate-800 py-6 mt-auto">
+        <div class="max-w-6xl mx-auto px-4 text-center text-slate-500 text-sm flex justify-center items-center gap-2">
+            Built for VibeCon <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i> by Ayush
+        </div>
+    </footer>
+
+    <!-- Application Logic -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // DOM Elements
+        const dropZone = document.getElementById('drop-zone');
+        const fileUpload = document.getElementById('file-upload');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const scanningLine = document.getElementById('scanning-line');
+        
+        const resultsPlaceholder = document.getElementById('results-placeholder');
+        const loadingState = document.getElementById('loading-state');
+        const finalResults = document.getElementById('final-results');
+
+        // Handle File Selection
+        dropZone.addEventListener('click', () => fileUpload.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-cyan-500', 'bg-slate-800/80');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-cyan-500', 'bg-slate-800/80');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-cyan-500', 'bg-slate-800/80');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileUpload.addEventListener('change', function() {
+            if (this.files.length) {
+                handleFile(this.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file for this demo.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                uploadPrompt.classList.add('hidden');
+                imagePreviewContainer.classList.remove('hidden');
+                analyzeBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Handle Analysis Simulation
+        analyzeBtn.addEventListener('click', () => {
+            // UI updates
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Processing...';
+            lucide.createIcons();
+            
+            scanningLine.classList.remove('hidden');
+            resultsPlaceholder.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+
+            // SIMULATE BACKEND DELAY (In the future, this is where your FastAPI fetch() goes)
+            setTimeout(() => {
+                loadingState.classList.add('hidden');
+                scanningLine.classList.add('hidden');
+                finalResults.classList.remove('hidden');
+                
+                analyzeBtn.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i> Scan Complete';
+                lucide.createIcons();
+            }, 3500); // 3.5 seconds of fake loading for demo effect
+        });
+
+        // Reset App
+        function resetApp() {
+            fileUpload.value = '';
+            imagePreview.src = '';
+            
+            imagePreviewContainer.classList.add('hidden');
+            uploadPrompt.classList.remove('hidden');
+            
+            finalResults.classList.add('hidden');
+            resultsPlaceholder.classList.remove('hidden');
+            
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<i data-lucide="search" class="w-5 h-5"></i> Analyze Media';
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
